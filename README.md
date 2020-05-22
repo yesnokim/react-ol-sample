@@ -16,3 +16,7 @@ $npm install --save ol
 $ npm install gh-pages --save-dev
 ```
 
+4. add git upstream and deploy
+
+5.
+![](2020-05-22-23-37-24.png)
