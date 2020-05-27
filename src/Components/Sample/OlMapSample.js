@@ -1,57 +1,97 @@
-import Map from "ol/Map";
-import View from "ol/View";
+import { Feature, Geolocation } from "ol";
+import { Circle, Fill, Stroke, Style } from "ol/style";
+import Point from "ol/geom/Point";
 import TileLayer from "ol/layer/Tile";
+import VectorLayer from "ol/layer/Vector";
+import Map from "ol/Map";
 import OSM from "ol/source/OSM";
+import VectorSource from "ol/source/Vector";
+import View from "ol/View";
 import React, { useEffect, useState } from "react";
+import { Heatmap as HeatmapLayer } from "ol/layer";
+import "ol/ol.css";
 
 export default function OlMapSample() {
-  const [zoom, setZoom] = useState(5);
-  const [center, setCenter] = useState([0, 0]);
+  useEffect(() => {
+    function init() {
+      let initView = new View({
+        center: [36, 127],
+        zoom: 5,
+      });
 
-  const [map, setMap] = useState(
-    new Map({
-      target: null,
-      layers: [
-        new TileLayer({
-          source: new OSM(),
+      var positionFeature = new Feature();
+      let pfStyle = new Style({
+        image: new Circle({
+          radius: 3,
+          fill: new Fill({
+            color: "#3399CC",
+          }),
+          stroke: new Stroke({
+            color: "#fff",
+            width: 1,
+          }),
         }),
-      ],
-      view: new View({
-        center: center,
-        zoom: zoom,
-      }),
-    })
-  );
+      });
+      positionFeature.setStyle(pfStyle);
 
-  useEffect(() => {
-    updateMap();
-  }, [zoom, center]);
+      let geolocation = new Geolocation({
+        trackingOptions: {
+          enableHighAccuracy: false,
+        },
+        projection: initView.getProjection(),
+      });
 
-  useEffect(() => {
-    console.log(map);
-    map.setTarget("map");
-    map.on("moveend", onMoveend);
-    return () => {
-      setMap(null);
-    };
+      let tempVectorSource = new VectorSource({
+        features: [positionFeature],
+      });
+
+      let tempVectorLayer = new VectorLayer({
+        source: tempVectorSource,
+      });
+
+      var heatMapVectorLayer = new HeatmapLayer({
+        source: tempVectorSource,
+        blur: parseInt(5, 10),
+        radius: parseInt(15, 10),
+        weight: function(feature) {
+          return 0.1;
+        }
+      });
+
+      let map = new Map({
+        target: "map",
+        layers: [
+          new TileLayer({
+            source: new OSM(),
+          }),
+          
+          heatMapVectorLayer,
+          tempVectorLayer,
+        ],
+        view: initView,
+      });
+
+      geolocation.on("change:position", function () {
+        var coordinates = geolocation.getPosition();
+        if (coordinates) {
+          let _pf = new Feature();
+          _pf.setStyle(pfStyle);
+          _pf.setGeometry(coordinates ? new Point(coordinates) : null);
+          initView.setCenter(coordinates);
+
+          tempVectorSource.addFeature(_pf);
+        }
+      });
+      geolocation.setTracking(true);
+    }
+
+    init();
   }, []);
 
-  let onMoveend = () => {
-    console.log("onMoveend");
-    setCenter(map.getView().getCenter());
-    setZoom(map.getView().getZoom());
-  };
-
-  let updateMap = () => {
-    console.log("updateMap()", center, zoom);
-    map.getView().setCenter(center);
-    map.getView().setZoom(zoom);
-  };
-
   return (
-    <React.Fragment>
-      <div id="map" style={{ width: "100%", height: "400px" }}></div>
-      <span>OpenLayer map sample</span>
-    </React.Fragment>
+    <div
+      id="map"
+      style={{ width: window.innerWidth, height: window.innerHeight }}
+    ></div>
   );
 }
